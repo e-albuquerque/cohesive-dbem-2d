@@ -1,0 +1,24 @@
+# Compilação Fortran e binários
+*.o
+*.obj
+*.mod
+*.MOD
+*.exe
+*.pdb
+*.ilk
+MAIN_COHESIVE_DBEM_2D
+fort.*
+Debug/
+
+# Arquivos temporários e do sistema
+*~
+*.swp
+*.manifest*
+BuildLog.htm
+Thumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
