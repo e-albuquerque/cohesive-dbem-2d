@@ -69,6 +69,19 @@ def generate_geometry_and_mesh(file_name, geo_code=None):
     if not mesh_ok:
         try:
             import gmsh
+        except ImportError:
+            print("[Gmsh] Módulo python 'gmsh' não encontrado. Instalando automaticamente via pip...")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "gmsh"])
+                import importlib
+                importlib.invalidate_caches()
+                import gmsh
+            except Exception as err_install:
+                raise RuntimeError(
+                    f"O executável Gmsh não foi encontrado e a instalação do pacote 'gmsh' falhou: {err_install}"
+                )
+
+        try:
             gmsh.initialize()
             gmsh.open(geo_file)
             gmsh.model.mesh.generate(2)
@@ -78,7 +91,7 @@ def generate_geometry_and_mesh(file_name, geo_code=None):
                 mesh_ok = True
                 print(f"[Gmsh] Malha gerada com sucesso via API Python gmsh: '{msh_file}'")
         except Exception as e:
-            raise RuntimeError(f"Falha ao executar Gmsh. Certifique-se de que o Gmsh está instalado. Erro: {e}")
+            raise RuntimeError(f"Falha ao executar API do Gmsh. Erro: {e}")
 
     if not mesh_ok:
         raise RuntimeError("Não foi possível gerar a malha .msh.")
