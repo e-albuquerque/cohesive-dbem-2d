@@ -6,10 +6,9 @@
 FC = gfortran 
 
 # Flags for debugging or for maximum performance (comment as necessary)
-FLAGS1 = -g -O0 -fbounds-check -fopenmp -fimplicit-none
-FLAGS2 = -Wall -Wextra -pedantic -Waliasing -Wsurprising -Wno-tabs
-
-FCFLAGS = $(FLAGS1) $(FLAGS2) 
+FLAGS1 = -O3 -fopenmp -fimplicit-none
+# FLAGS1 = -g -O0 -fbounds-check -fopenmp -fimplicit-none # Debug mode 
+FCFLAGS = $(FLAGS1) 
 
 # Libraries needed for linking
 LDFLAGS = -llapack 
