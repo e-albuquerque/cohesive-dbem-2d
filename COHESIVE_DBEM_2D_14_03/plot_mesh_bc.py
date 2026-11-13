@@ -78,8 +78,8 @@ def read_mesh_and_bcs(dir_path='.'):
     for _ in range(n_nodes_raw):
         parts = mesh_lines[idx].split()
         nid = int(parts[0])
-        x = float(parts[1])
-        y = float(parts[2])
+        x = parse_fortran_float(parts[1])
+        y = parse_fortran_float(parts[2])
         raw_coords[nid] = (x, y)
         idx += 1
 

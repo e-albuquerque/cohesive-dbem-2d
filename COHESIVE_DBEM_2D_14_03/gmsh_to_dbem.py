@@ -331,19 +331,20 @@ def compute_inodes(file_name, bound_cond):
     # agrupa por conectividade sequencial
     n_subreg = len(surf_names_ordered) if len(surf_names_ordered) > 0 else 1
 
-    # Construção de lista de nós utilizados na malha de contorno
-    boundary_nodes = np.unique(line_elements)
-    all_nodes = np.arange(len(coordinates))
+    # Filtra e renumera apenas os nós pertencentes aos elementos de contorno 1D (BEM)
+    unique_nodes, inv = np.unique(line_elements, return_inverse=True)
+    line_elements_renumbered = inv.reshape(line_elements.shape)
+    coordinates_boundary = coordinates[unique_nodes]
 
     return {
-        'coordinates': coordinates,
-        'line_elements': line_elements,
+        'coordinates': coordinates_boundary,
+        'line_elements': line_elements_renumbered,
         'segments': segments,
         'tag_to_curve': tag_to_curve,
         'tag_to_surface': tag_to_surface,
         'elem_subregion': elem_subregion,
         'n_subregions': n_subreg,
-        'boundary_nodes': boundary_nodes,
+        'boundary_nodes': np.arange(len(coordinates_boundary)),
         'mesh': mesh,
     }
 
@@ -414,7 +415,7 @@ def create_fortran_input_files(output_dir, comp_data, inp_data):
         for i in range(n_nodes):
             x, y = coords[i, 0], coords[i, 1]
             z = coords[i, 2] if coords.shape[1] > 2 else 0.0
-            f.write(f"{i+1}\t{x:.5f}\t{y:.5f}\t{z:.2f}\n")
+            f.write(f"{i+1}\t{format_fortran_real(x)}\t{format_fortran_real(y)}\t{z:.2f}\n")
         f.write("\n")
         f.write("INFORM THE POLYNOMIAL ORDER FOR ALL ELEMENTS\n")
         f.write("ELEMENT\t        ORDER\t        SUBREGION         \t        \n")
