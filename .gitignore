@@ -22,3 +22,6 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Malhas geradas temporárias
+*.msh

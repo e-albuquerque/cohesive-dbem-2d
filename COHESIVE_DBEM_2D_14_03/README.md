@@ -165,3 +165,47 @@ Além do modelo simplificado na raiz, a pasta `EXEMPLOS/Artigo em conjunto/Teste
 - `M 8 elements-mm`: Malha intermediária com 8 elementos/mm.
 - `M 16 elements-mm`: Malha de referência recomendada para análise de fratura.
 - `M 32 elements-mm`: Malha altamente refinada para convergência e validação fina da zona coesiva.
+
+---
+
+## 7. Geração de Modelos com Gmsh e Conversor Automatizado (`gmsh_to_dbem.py`)
+
+Para automatizar e facilitar a criação de novos modelos para o DBEM 2D Coesivo, foi implementado um fluxo integrado baseado no Gmsh e no módulo Python `meshio`, seguindo a metodologia de pré-processamento do notebook de referência `Contato.ipynb`.
+
+### 7.1 Arquivo de Geometria Gmsh (`exemplo_small.geo`)
+O arquivo `exemplo_small.geo` define as superfícies das sub-regiões e os grupos físicos de contorno:
+- **Curvas Físicas (1D)**:
+  - `Physical Curve("bot")`: borda inferior (condição de apoio $U_y = 0$).
+  - `Physical Curve("interface_m")`: interface coesiva $I^-$ associada à sub-região 1.
+  - `Physical Curve("left")`: borda esquerda (engastamento $U_x = 0$).
+  - `Physical Curve("right")`: borda direita (tração prescrita $T_x = -1$).
+  - `Physical Curve("top")`: borda superior (tração prescrita $T_y = 1$ e grau de controle de deslocamento).
+  - `Physical Curve("interface_p")`: interface coesiva $I^+$ associada à sub-região 2.
+- **Superfícies Físicas (2D)**:
+  - `Physical Surface("subregion_1")`: domínio da sub-região 1 (triângulo inferior).
+  - `Physical Surface("subregion_2")`: domínio da sub-região 2 (triângulo superior).
+
+### 7.2 Conversor `gmsh_to_dbem.py`
+O script realiza automaticamente o pipeline completo:
+1. Gera a malha executando o Gmsh (`.geo` $\to$ `.msh`).
+2. Lê o arquivo `.msh` utilizando o `meshio`.
+3. Extrai as coordenadas nodais, elementos de linha 1D, identificadores de sub-região e mapeamento das curvas físicas.
+4. Exporta e formata com precisão todos os 5 arquivos de entrada necessários para o solver Fortran:
+   - `1_BOUNDARY_MESH.txt`
+   - `2_MATERIALS.txt`
+   - `3_BOUNDARY_CONDITIONS.txt`
+   - `4_ANALYSIS_PARAMETERS.txt`
+   - `5_POSTPROCESSING_MESH.txt`
+
+### 7.3 Execução do Pré-processador
+Para gerar os arquivos de entrada a partir da geometria Gmsh:
+```powershell
+python gmsh_to_dbem.py
+```
+
+Em seguida, basta rodar o solver Fortran:
+```powershell
+.\MAIN_COHESIVE_DBEM_2D.exe
+python plot_mesh_bc.py
+```
+
