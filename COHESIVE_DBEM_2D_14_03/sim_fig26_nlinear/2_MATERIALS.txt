@@ -1,0 +1,16 @@
+**************** MATERIALS DEFINITIONS *****************
+WARNING: RESPECT THIS FILE FORMAT.THE SPACE BETWEEN DATA
+AND THE NUMBER FORMAT
+
+INFORM THE MATERIAL PROPERTIES
+SUBREGION   Young_Modulus       Poisson 
+   1            1.360000D+05            3.300000D-01
+   2            3.000000D+03            3.500000D-01
+
+INFORM THE COHESIVE PROPERTIES FOR MODE I
+Kn0          phin          smax             
+2.000000D+06       5.200000D-04        4.465400D+01                         
+
+INFORM THE COHESIVE PROPERTIES FOR MODE II
+Kto          phit          tmax           
+2.000000D+06       5.200000D-04        4.465400D+01                       

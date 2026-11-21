@@ -291,11 +291,16 @@ INTEGER::I,K,II,JJ,KK,CONT,N0,I_AUX
 REAL(KIND=wp)::VALUES(MAX_ORDER+1,2)
 REAL(KIND=wp)::X(2*N_NODES),DU(2),nv(2),JAC,DUn,DUt,Limit_Tn,Limit_Tt,av,bv
 REAL(KIND=wp)::Kappa,Sigma_n,Sigma_t,Criterion
+REAL(KIND=wp)::X_MIN_INT,X_MAX_INT,X_ASYM_LIMIT,smax_loc,tmax_loc
 
 Limit_Tn = (1.D-3)*smax
 Limit_Tt = (1.D-3)*tmax
 av = 1.D0
 bv = 1.D0
+
+X_MIN_INT = MINVAL(COORDCOLOCATIONPOINTS(VETOR_NODE_Ip,1))
+X_MAX_INT = MAXVAL(COORDCOLOCATIONPOINTS(VETOR_NODE_Ip,1))
+X_ASYM_LIMIT = X_MAX_INT - 0.10D0*(X_MAX_INT - X_MIN_INT)
 
 N0 = NDOF_T + NDOF_U + NDOF_DU
 CONT = N0
@@ -324,9 +329,16 @@ DO I_AUX=1,SIZE(VETOR_NODE_Ip)
         DUt = 1.D-12
     ENDIF
 
+    smax_loc = smax
+    tmax_loc = tmax
+    IF(ANALYSIS_TYPE.EQ."CA" .AND. COORDCOLOCATIONPOINTS(I,1).GT.X_ASYM_LIMIT)THEN
+        smax_loc = 1.0D50
+        tmax_loc = 1.0D50
+    ENDIF
+
     Sigma_n = kn0*DUn
     Sigma_t = kt0*DUt
-    Criterion = DSQRT((Sigma_n/smax)**2.D0 + (Sigma_t/tmax)**2.D0)
+    Criterion = DSQRT((Sigma_n/smax_loc)**2.D0 + (Sigma_t/tmax_loc)**2.D0)
     Kappa = DSQRT((DUn/deltanc)**2.D0 + (DUt/deltatc)**2.D0) - 1.D0
     Beta(I) = Kappa/(Etan*(1.D0+Kappa))
 
@@ -531,9 +543,11 @@ SUBROUTINE SOLVE_NONLINEAR_SYSTEM                                               
 IMPLICIT NONE
 
 INTEGER::II,I,IPIV(2*N_NODES),INFO,ite,itecumulated
+LOGICAL::MAT_CHANGED,LU_CHANGED
 REAL(KIND=wp)::X(2*N_NODES),lambda,PSI(2*N_NODES),&
     F(2*N_NODES,2),dX(2*N_NODES),dXpres(2*N_NODES),dXc(2*N_NODES),dXp(2*N_NODES),criterionPSI_num,&
     criterionPSI_denum,criterionPSI,dLambda,lambdaux,lambdauy,lambdatx,lambdaty
+REAL(KIND=wp)::Knn_OLD(N_NODES),Ktt_OLD(N_NODES)
 REAL(KIND=wp)::TI_FuFt,TF_FuFt,DT_FuFt
 REAL(KIND=wp)::TI_F,TF_F,DT_F
 REAL(KIND=wp)::TI_TM,TF_TM,DT_TM
@@ -553,6 +567,15 @@ lambdauy = 1.D0
 lambdatx = 1.D0
 lambdaty = 1.D0
 itecumulated = 0
+MAT_CHANGED = .TRUE.
+LU_CHANGED  = .TRUE.
+
+! Precompute constant prescribed load vectors outside the load-step loop
+TI_FuFt = omp_get_wtime()
+CALL VECTOR_Fu_PRES
+CALL VECTOR_Ft_PRES
+TF_FuFt = omp_get_wtime()
+DT_FuFt = TF_FuFt - TI_FuFt
 
 OPEN(10,FILE='8_OUTPUT_NODAL_STRUCTURAL_RESPONSE.txt',STATUS='UNKNOWN')
 WRITE(10,*) "       Ux              Uy              Tx              Ty"
@@ -576,30 +599,30 @@ DO II=1,Ns
             ENDIF
         ENDIF
 
-!   COMPUTING THE dRdlambda VECTOR
-        TI_FuFt = omp_get_wtime()
-        CALL VECTOR_Fu_PRES
-        CALL VECTOR_Ft_PRES
-        F(:,1) = Fu_PRES - Ft_PRES
-        TF_FuFt = omp_get_wtime()
-        DT_FuFt = TF_FuFt - TI_FuFt
-
-!   COMPUTING THE RESIDUE VECTOR
+!   COMPUTING THE dRdlambda AND RESIDUE VECTORS
         TI_F = omp_get_wtime()
-        CALL MATRIX_M
-        F(:,2) = MATMUL(MATRIX,X) + lambda*(Fu_PRES-Ft_PRES)
+        IF(MAT_CHANGED)THEN
+            CALL MATRIX_M
+            MAT_CHANGED = .FALSE.
+        ENDIF
+        F(:,1) = Fu_PRES - Ft_PRES
+        F(:,2) = MATMUL(MATRIX,X) + lambda*F(:,1)
         TF_F = omp_get_wtime()
         DT_F = TF_F - TI_F
 
-!   COMPUTING THE TANGENT OPERATOR MATRIX
+!   COMPUTING THE TANGENT/SECANT OPERATOR MATRIX AND LU FACTORIZATION (ONLY WHEN STIFFNESS CHANGED SIGNIFICANTLY)
         TI_TM = omp_get_wtime()
-        CALL TANGENT_MATRIX_dPSIdX(X)
+        IF(LU_CHANGED)THEN
+            dPSIdX = MATRIX
+            CALL DGETRF(2*N_NODES,2*N_NODES,dPSIdX,2*N_NODES,IPIV,INFO)
+            LU_CHANGED = .FALSE.
+        ENDIF
         TF_TM = omp_get_wtime()
         DT_TM = TF_TM - TI_TM
 
-!   SOLVING THE PREDICTION AND CORRECTOR SYSTEM OF EQUATIONS
+!   SOLVING THE PREDICTION AND CORRECTOR SYSTEM OF EQUATIONS VIA FORWARD/BACKWARD SUBSTITUTION
         TI_SS = omp_get_wtime()
-        CALL DGESV(2*N_NODES,2,dPSIdX,2*N_NODES,IPIV,F,2*N_NODES,INFO)
+        CALL DGETRS('N',2*N_NODES,2,dPSIdX,2*N_NODES,IPIV,F,2*N_NODES,INFO)
         dXp = -F(:,1)
         dXc = -F(:,2)
         TF_SS = omp_get_wtime()
@@ -613,13 +636,24 @@ DO II=1,Ns
 
 !   UPDATING THE COHESIVE STIFFNESS
         TI_CS = omp_get_wtime()
+        Knn_OLD = Knn
+        Ktt_OLD = Ktt
         CALL UPDATE_COHESIVE_STIFFNESS(X)
+        IF(MAXVAL(ABS(Knn-Knn_OLD)).GT.0.D0 .OR. MAXVAL(ABS(Ktt-Ktt_OLD)).GT.0.D0)THEN
+            MAT_CHANGED = .TRUE.
+        ENDIF
+        IF(MAXVAL(ABS(Knn-Knn_OLD)).GT.1.0D-3*kn0 .OR. MAXVAL(ABS(Ktt-Ktt_OLD)).GT.1.0D-3*kt0 .OR. MOD(ite,5).EQ.0)THEN
+            LU_CHANGED = .TRUE.
+        ENDIF
         TF_CS = omp_get_wtime()
         DT_CS = TF_CS - TI_CS
 
 !   COMPUTING THE RESIDUE VECTOR
         TI_PSI = omp_get_wtime()
-        CALL MATRIX_M
+        IF(MAT_CHANGED)THEN
+            CALL MATRIX_M
+            MAT_CHANGED = .FALSE.
+        ENDIF
         PSI = MATMUL(MATRIX,X) + lambda*(Fu_PRES-Ft_PRES)
         TF_PSI = omp_get_wtime()
         DT_PSI = TF_PSI - TI_PSI
@@ -634,6 +668,7 @@ DO II=1,Ns
         criterionPSI = DSQRT(criterionPSI_num/criterionPSI_denum)
 
         WRITE(40,400) II,ite,DT_FuFt,DT_F,DT_TM,DT_SS,DT_CS,DT_PSI
+        DT_FuFt = 0.D0
     ENDDO
 
     CALL UPDATE_U_AND_T(X)

@@ -434,8 +434,8 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
         ax.plot(arr[:, 0], arr[:, 1], 'rP', markersize=5.5,
                 label='Known $u_y$ (Dirichlet)', zorder=11)
 
-    # 5. Marcador para Ponto Controlado (apenas em análises de propagação coesiva CP)
-    if control_info and analysis_type == 'CP':
+    # 5. Marcador para Ponto Controlado (apenas em análises de propagação coesiva CP/CA)
+    if control_info and analysis_type in ('CP', 'CA'):
         cnid = control_info['node']
         cval = control_info['value']
         cdir = control_info['direction']
@@ -444,8 +444,10 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
             dir_str = "x" if cdir == 1 else "y"
             ax.plot(cpt[0], cpt[1], '*', color='#006400', markersize=13, zorder=12,
                     label=f'Control Node {cnid} ($u_{dir_str} = {cval}$)')
+            dy_ann = 0.035 * max_delta if aspect_ratio > 3.0 else 0.08 * max_delta
+            dx_ann = 0.10 * max_delta if aspect_ratio > 3.0 else 0.08 * max_delta
             ax.annotate(f'Control Node {cnid}\n$u_{dir_str} = {cval}$',
-                        xy=cpt, xytext=(cpt[0] + 0.08 * max_delta, cpt[1] + 0.08 * max_delta),
+                        xy=cpt, xytext=(cpt[0] + dx_ann, cpt[1] + dy_ann),
                         arrowprops=dict(facecolor='#006400', shrink=0.08, width=1.3, headwidth=5.5),
                         fontsize=8.5, fontweight='bold', color='#006400',
                         bbox=dict(boxstyle='round,pad=0.25', facecolor='#eafaf1', edgecolor='#006400'),

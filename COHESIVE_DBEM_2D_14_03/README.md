@@ -37,9 +37,10 @@ As interfaces entre sub-regiões são divididas em pares de superfícies:
 - Superfície **$I^-$ (`Im`)**: associada à sub-região 1 (ex.: substrato);
 - Superfície **$I^+$ (`Ip`)**: associada à sub-região 2 (ex.: adesivo).
 
-O solver suporta dois regimes de análise:
+O solver suporta três modos de análise configuráveis em `4_ANALYSIS_PARAMETERS.txt`:
 1. **Análise Elástica Linear (`LE`)**: avalia as tensões normais de descolamento (*Peel Stress*, $\sigma$) e de cisalhamento (*Shear Stress*, $\tau$) ao longo da interface íntegra com rigidez penalizada ($K_{n0}, K_{t0}$), usada na aplicação do **Critério Acoplado (Coupled Criterion - CC)**.
-2. **Propagação Coesiva Não Linear (`CP`)**: utiliza uma lei de tração-separação bilinear em Modo Misto (Modo I: $K_{n0}, \Phi_n, \sigma_{\max}$; Modo II: $K_{t0}, \Phi_t, \tau_{\max}$) com variável escalar de dano $\beta \in [0, 1]$ resolvida incrementalmente via **Newton-Raphson** com controle de deslocamento ou salto relativo.
+2. **Propagação Coesiva Não Linear Simétrica (`CP`)**: utiliza uma lei de tração-separação bilinear em Modo Misto (Modo I: $K_{n0}, \Phi_n, \sigma_{\max}$; Modo II: $K_{t0}, \Phi_t, \tau_{\max}$) com variável escalar de dano $\beta \in [0, 1]$ resolvida incrementalmente via **Newton-Raphson** com controle de deslocamento ou salto relativo.
+3. **Propagação Coesiva Não Linear Assimétrica (`CA`)**: reproduz o descolamento assimétrico observado experimentalmente no ensaio 3PBT (Seção 6.3.2 do artigo EABE 2025), bloqueando a iniciação espúria na extremidade direita ($\sigma_c = 10^{50}\text{ MPa}$) para que uma única trinca nuclee e se propague a partir da extremidade esquerda.
 
 ---
 
@@ -70,30 +71,35 @@ No benchmark do artigo EABE 2025 ($N_{\text{nodes}} = 445$ nós de contorno, $N_
 
 ## 3. Notebooks Interativos (Execução Local e Google Colab)
 
-O projeto conta com dois Jupyter Notebooks completos que executam todo o fluxo desde a criação do arquivo `.geo` no Gmsh, geração da malha `.msh`, pré-processamento via `meshio`, compilação do Fortran, execução das simulações para $h_s = 1.08\text{ mm}$ e $h_s = 1.62\text{ mm}$, até a plotagem da **Fig. 10** e das **Figs. 12, 13, 14 e 15** do artigo:
+O projeto conta com três Jupyter Notebooks completos que cobrem tanto a análise elástica linear quanto a análise não linear incremental de dano coesivo (PID):
 
-1. **`Run_cohesive_dbem_2d.ipynb`**:
-   - Projetado para execução local no **VSCode / Jupyter** (Windows ou Linux), com configuração automática de ambiente virtual `.venv` e verificação de pacotes (`numpy`, `matplotlib`, `meshio`, `gmsh`).
-2. **`Run_cohesive_dbem_2d_on_Colab.ipynb`**:
-   - Projetado especificamente para execução no **Google Colab (Ubuntu Linux)**, seguindo o padrão de comandos diretos (`!apt-get`, `!make`, `!gmsh`, `!./MAIN_COHESIVE_DBEM_2D`), ideal para demonstrações em sala de aula e execução em máquinas da nuvem.
+1. **`Run_cohesive_dbem_2d.ipynb`** (*Análise Linear Elástica — Local / Multiplataforma*):
+   - Executa o fluxo completo desde a criação do arquivo `.geo` no Gmsh, geração da malha `.msh`, pré-processamento via `meshio`, compilação do Fortran e resolução elástica para $h_s = 1.08\text{ mm}$ e $h_s = 1.62\text{ mm}$, reproduzindo a **Fig. 10** e as **Figs. 12, 13, 14 e 15** do artigo.
+2. **`Run_cohesive_dbem_2d_on_Colab.ipynb`** (*Análise Linear Elástica — Google Colab Linux*):
+   - Projetado especificamente para execução no **Google Colab (Ubuntu Linux)**, seguindo o padrão de comandos diretos (`!apt-get`, `!make`, `!gmsh`, `!./MAIN_COHESIVE_DBEM_2D`).
+3. **`Run_cohesive_dbem_2d_nlinear.ipynb`** (*Análise Não Linear de Dano Progressivo PID — Passo a Passo*):
+   - Detalha passo a passo a teoria e a implementação da análise não linear incremental por controle de deslocamento (Newton-Raphson com lei coesiva bilinear em Modo Misto) para descolamento assimétrico (`ANALYSIS_TYPE = 'CA'`), reproduzindo a **Fig. 26** (*Force–displacement results for asymmetric debonding: $h_s = 1.08\text{ mm}$*) e a evolução do comprimento da trinca (análogo à **Fig. 30**).
 
 ---
 
-## 4. Benchmark do Artigo EABE 2025 (Ensaio de Flexão em 3 Pontos - Fig. 10)
+## 4. Benchmark do Artigo EABE 2025 (Ensaio de Flexão em 3 Pontos - Fig. 10 e Fig. 26)
 
 ### 4.1 Parâmetros Geométricos e Físicos
-- **Substrato ($\Omega_1$)**: comprimento $L_s = 50,0\text{ mm}$, espessura $h_s = 1,08\text{ mm}$ ou $h_s = 1,62\text{ mm}$, $E_1 = 136\,000\text{ MPa}$ ($2 \times 68\,000\text{ MPa}$ pela razão de larguras $b_2/b_1$), $\nu_1 = 0,33$.
+- **Substrato ($\Omega_1$)**: comprimento $L_s = 50,0\text{ mm}$, espessura $h_s = 1,08\text{ mm}$ ou $h_s = 1,62\text{ mm}$, $E_1 = 136\,000\text{ MPa}$ ($2 \times 68\,000\text{ MPa}$ pela razão de larguras $b_1/b_2$), $\nu_1 = 0,33$.
 - **Adesivo ($\Omega_2$)**: comprimento de colagem $L_a = 25,0\text{ mm}$ ($x \in [-12,5; +12,5]\text{ mm}$), espessura $h_a = 4,0\text{ mm}$, $E_2 = 3\,000\text{ MPa}$, $\nu_2 = 0,35$.
 - **Apoios e Carregamento**: vão entre apoios $d_{\text{supp}} = 35,90\text{ mm}$ (rolete à esquerda $u_y = 0$, apoio fixo à direita $u_x = u_y = 0$, largura $0,12\text{ mm}$) e deslocamento vertical prescrito no topo central ($w_{\text{load}} = 2,0\text{ mm}$):
-  - Para $h_s = 1,08\text{ mm}$: $U_c = 0,576\text{ mm}$ ($F_c = 178\text{ N}$);
-  - Para $h_s = 1,62\text{ mm}$: $U_c = 0,6093\text{ mm}$ ($F_c = 326\text{ N}$).
+  - Para $h_s = 1,08\text{ mm}$: $U_c = 0,576\text{ mm}$ ($F_c = 178\text{ N}$, $\sigma_c = 44,654\text{ MPa}$, $\mathcal{G}_c = 0,520\text{ N/mm}$, $k_{n0} = k_{t0} = 2000\text{ MPa/mm}$);
+  - Para $h_s = 1,62\text{ mm}$: $U_c = 0,6093\text{ mm}$ ($F_c = 326\text{ N}$, $\sigma_c = 45,906\text{ MPa}$, $\mathcal{G}_c = 0,5371\text{ N/mm}$, $k_{n0} = k_{t0} = 948\text{ MPa/mm}$).
 
 ### 4.2 Figuras Geradas Automaticamente
-- `mesh_and_boundary_conditions.png`: Reprodução da **Fig. 10** (malha e condições de contorno para $h_s = 1,08\text{ mm}$).
+- `mesh_and_boundary_conditions.png`: Reprodução da **Fig. 10** (malha e condições de contorno para análise linear $h_s = 1,08\text{ mm}$).
+- `mesh_and_boundary_conditions_nlinear.png`: Malha, condições de contorno e nó de controle para a análise não linear por controle de deslocamento ($h_s = 1,08\text{ mm}$).
 - `fig12_peel_hs108.png`: **Fig. 12** — *Peel stress over the undamaged interface: $h_s = 1.08\text{ mm}$* (pico de $\approx 43,45\text{ MPa}$ nas bordas $x = \pm 12,5\text{ mm}$).
 - `fig13_shear_hs108.png`: **Fig. 13** — *Shear stress over the undamaged interface: $h_s = 1.08\text{ mm}$* (extremos antissimétricos de $\approx \mp 13,96\text{ MPa}$).
 - `fig14_peel_hs162.png`: **Fig. 14** — *Comparison of peel Stress over the undamaged interface: $h_s = 1.62\text{ mm}$* (pico de $\approx 46,15\text{ MPa}$).
 - `fig15_shear_hs162.png`: **Fig. 15** — *Comparison of shear stress over the undamaged interface: $h_s = 1.62\text{ mm}$* (extremos de $\approx \mp 15,09\text{ MPa}$).
+- `fig26_force_displacement_hs108.png`: **Fig. 26** — *Force–displacement results for asymmetric debonding: $h_s = 1.08\text{ mm}$* (curva não linear **2D BEM - PID**).
+- `fig26_cohesive_damage_evolution_hs108.png`: Evolução do comprimento da trinca assimétrica $a(u)$ (análogo à **Fig. 30**) e perfil de degradação da rigidez coesiva $K_{nn}/k_{n0}$.
 
 ---
 
