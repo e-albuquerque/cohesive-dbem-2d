@@ -262,15 +262,16 @@ def find_subregion_polygon(subreg_id, data):
     return pts
 
 
-def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png'):
+def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png',
+                               show_node_ids=False, show_elem_ids=False):
     """
     Desenha a malha e condições de contorno de acordo com o padrão preproc.py:
-      - Linhas e nós de contorno
+      - Linhas e nós de contorno (sem poluição visual de números de nós/elementos por padrão)
       - Destaque da interface coesiva (I- / I+)
       - Condições de Dirichlet (ux: 'rx', uy: 'rP')
       - Condições de Neumann (tx: 'bx', ty: 'bP')
       - Vetores de tração/deslocamento (quivers)
-      - Ponto de controle de propagação
+      - Ponto de controle de propagação (apenas em análises não lineares CP)
       - Pontos de colocação descontínuos
     """
     coords = data['node_coords']
@@ -284,9 +285,7 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
     bc_ty = data['bc_ty']
     control_info = data.get('control_info', {})
     colloc_pts = data.get('colloc_pts', [])
-
-    fig, ax = plt.subplots(figsize=(10, 8.5), dpi=300)
-    ax.grid(True, linestyle='--', alpha=0.4)
+    analysis_type = data.get('analysis_type', 'CP').strip().upper()
 
     # Coordenadas globais para delimitação
     all_x = [raw_coords[n][0] for n in raw_coords]
@@ -297,21 +296,32 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
     dy = y_max - y_min if (y_max - y_min) > 0 else 1.0
     max_delta = max(dx, dy)
 
+    aspect_ratio = dx / max(dy, 1e-6)
+    fig_height = 5.2 if aspect_ratio > 3.0 else 7.5
+    fig, ax = plt.subplots(figsize=(11, fig_height), dpi=300)
+    ax.grid(True, linestyle='--', alpha=0.4)
+
     # Preenchimento suave de cada sub-região
     subreg_colors = {1: '#1f77b4', 2: '#2ca02c', 3: '#ff7f0e'}
     for s_id in range(1, data['n_subregions'] + 1):
         poly_pts = find_subregion_polygon(s_id, data)
         if poly_pts and len(poly_pts) >= 3:
             poly = Polygon(poly_pts, closed=True, facecolor=subreg_colors.get(s_id, '#888888'),
-                           alpha=0.08, edgecolor='none', zorder=1)
+                           alpha=0.10, edgecolor='none', zorder=1)
             ax.add_patch(poly)
-            cx = np.mean([p[0] for p in poly_pts])
-            cy = np.mean([p[1] for p in poly_pts])
+            xs_p = [p[0] for p in poly_pts]
+            ys_p = [p[1] for p in poly_pts]
+            cx = 0.5 * (min(xs_p) + max(xs_p))
+            cy = 0.5 * (min(ys_p) + max(ys_p))
+            # Desloca levemente o texto da sub-região 1 se houver carga no centro
+            if s_id == 1 and aspect_ratio > 3.0:
+                cx = min(xs_p) + 0.28 * (max(xs_p) - min(xs_p))
             ax.text(cx, cy, fr'Subregion $\Omega_{s_id}$',
-                    fontsize=10.5, color=subreg_colors.get(s_id, '#333333'),
+                    fontsize=10, color=subreg_colors.get(s_id, '#333333'),
                     fontweight='bold', ha='center', va='center', zorder=2)
 
     # 1. Traçado dos elementos de contorno
+    seen_labels = set()
     for eid, con in elem_conec.items():
         n1, n2 = con[0], con[1]
         x1, y1 = coords[n1]
@@ -320,40 +330,47 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
         subreg = elem_subreg.get(eid, 1)
 
         if stype in ['Im', 'Ip']:
-            # Interface Coesiva (vermelho tracejado)
-            lbl = 'Cohesive Interface ($I^- / I^+$)' if eid == 4 else ""
-            ax.plot([x1, x2], [y1, y2], color='#d62728', linestyle='--', linewidth=2.6,
+            lbl_cand = 'Cohesive Interface ($I^- / I^+$)'
+            lbl = lbl_cand if lbl_cand not in seen_labels else ""
+            seen_labels.add(lbl_cand)
+            ax.plot([x1, x2], [y1, y2], color='#d62728', linestyle='--', linewidth=2.2,
                     label=lbl, zorder=5)
         else:
             col = subreg_colors.get(subreg, 'black')
-            lbl = fr'Subregion $\Omega_{subreg}$ Boundary' if eid in [1, 7] else ""
-            ax.plot([x1, x2], [y1, y2], color=col, linewidth=1.8, label=lbl, zorder=3)
+            lbl_cand = fr'Subregion $\Omega_{subreg}$ Boundary'
+            lbl = lbl_cand if lbl_cand not in seen_labels else ""
+            seen_labels.add(lbl_cand)
+            ax.plot([x1, x2], [y1, y2], color=col, linewidth=1.6, label=lbl, zorder=3)
 
-        # Rótulo do elemento e1, e2, ...
-        xm, ym = 0.5 * (x1 + x2), 0.5 * (y1 + y2)
-        de_x, de_y = (x2 - x1), (y2 - y1)
-        L = np.hypot(de_x, de_y)
-        nx = -de_y / L if L > 1e-12 else 0.0
-        ny = de_x / L if L > 1e-12 else 1.0
-        ax.text(xm + 0.03 * max_delta * nx, ym + 0.03 * max_delta * ny, f'e{eid}',
-                color='#111111', fontsize=8.5, fontweight='bold', ha='center', va='center',
-                bbox=dict(boxstyle='round,pad=0.15', facecolor='#ffffff', edgecolor='#bbbbbb', alpha=0.85),
-                zorder=6)
+        if show_elem_ids:
+            xm, ym = 0.5 * (x1 + x2), 0.5 * (y1 + y2)
+            de_x, de_y = (x2 - x1), (y2 - y1)
+            L = np.hypot(de_x, de_y)
+            nx = -de_y / L if L > 1e-12 else 0.0
+            ny = de_x / L if L > 1e-12 else 1.0
+            ax.text(xm + 0.03 * max_delta * nx, ym + 0.03 * max_delta * ny, f'e{eid}',
+                    color='#111111', fontsize=8, fontweight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.15', facecolor='#ffffff', edgecolor='#bbbbbb', alpha=0.85),
+                    zorder=6)
 
-    # 2. Nós geométricos
-    for nid, (x, y) in raw_coords.items():
-        ax.plot(x, y, 'ko', markersize=4, zorder=7)
-        ax.text(x - 0.02 * max_delta, y - 0.02 * max_delta, f'{nid}',
-                color='#222222', fontsize=8, ha='right', va='top', zorder=8)
+    # 2. Nós geométricos (sem imprimir os números dos nós por padrão para manter a figura limpa)
+    node_ms = 2.6 if len(raw_coords) > 60 else 4.0
+    raw_arr = np.array(list(raw_coords.values()))
+    ax.plot(raw_arr[:, 0], raw_arr[:, 1], 'ko', markersize=node_ms, label='Boundary Nodes', zorder=7)
+    if show_node_ids:
+        for nid, (x, y) in raw_coords.items():
+            ax.text(x - 0.015 * max_delta, y - 0.015 * max_delta, f'{nid}',
+                    color='#222222', fontsize=7.5, ha='right', va='top', zorder=8)
 
     # 3. Pontos de colocação (se disponíveis)
     if colloc_pts:
         c_arr = np.array(colloc_pts)
-        ax.plot(c_arr[:, 0], c_arr[:, 1], 'm.', markersize=4.5,
+        colloc_ms = 2.5 if len(colloc_pts) > 60 else 4.5
+        ax.plot(c_arr[:, 0], c_arr[:, 1], 'm.', markersize=colloc_ms,
                 label='Collocation Points (DBEM)', zorder=6)
 
     # 4. Condições de contorno (Dirichlet & Neumann)
-    arrow_len = 0.08 * max_delta
+    arrow_len = 0.055 * max_delta if aspect_ratio > 3.0 else 0.08 * max_delta
 
     # Marcadores coletados
     known_ux_pts, known_uy_pts = [], []
@@ -367,7 +384,7 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
             val = c
             vx = -arrow_len if abs(val) < 1e-12 else (arrow_len * np.sign(val))
             ax.quiver(pt[0], pt[1], vx, 0.0, color='red', angles='xy', scale_units='xy',
-                      scale=1, width=0.004, headwidth=4, headlength=5, zorder=9, alpha=0.8)
+                      scale=1, width=0.003, headwidth=3.8, headlength=4.5, zorder=9, alpha=0.85)
 
     # Uy prescrito
     for eid, (a, b, c) in bc_uy.items():
@@ -377,7 +394,7 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
             val = c
             vy = -arrow_len if abs(val) < 1e-12 else (arrow_len * np.sign(val))
             ax.quiver(pt[0], pt[1], 0.0, vy, color='red', angles='xy', scale_units='xy',
-                      scale=1, width=0.004, headwidth=4, headlength=5, zorder=9, alpha=0.8)
+                      scale=1, width=0.003, headwidth=3.8, headlength=4.5, zorder=9, alpha=0.85)
 
     # Tx prescrito (Neumann)
     for eid, (a, b, c) in bc_tx.items():
@@ -387,7 +404,7 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
             known_tx_pts.append(pt)
             vx = arrow_len * (np.sign(val) if abs(val) > 1e-12 else 1.0)
             ax.quiver(pt[0], pt[1], vx, 0.0, color='blue', angles='xy', scale_units='xy',
-                      scale=1, width=0.005, headwidth=4, headlength=5, zorder=9)
+                      scale=1, width=0.004, headwidth=4, headlength=5, zorder=9)
 
     # Ty prescrito (Neumann)
     for eid, (a, b, c) in bc_ty.items():
@@ -397,60 +414,60 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
             known_ty_pts.append(pt)
             vy = arrow_len * (np.sign(val) if abs(val) > 1e-12 else 1.0)
             ax.quiver(pt[0], pt[1], 0.0, vy, color='blue', angles='xy', scale_units='xy',
-                      scale=1, width=0.005, headwidth=4, headlength=5, zorder=9)
+                      scale=1, width=0.004, headwidth=4, headlength=5, zorder=9)
 
     # Plot dos marcadores característicos do preproc.py:
-    # 'rx' para Ux conhecido, 'rP' para Uy conhecido
-    # 'bx' para Tx conhecido, 'bP' para Ty conhecido
     if known_tx_pts:
         arr = np.array(known_tx_pts)
-        ax.plot(arr[:, 0], arr[:, 1], 'bx', markersize=7, markeredgewidth=1.8,
+        ax.plot(arr[:, 0], arr[:, 1], 'bx', markersize=6.5, markeredgewidth=1.6,
                 label='Known $t_x$ (Neumann)', zorder=10)
     if known_ty_pts:
         arr = np.array(known_ty_pts)
-        ax.plot(arr[:, 0], arr[:, 1], 'bP', markersize=6,
+        ax.plot(arr[:, 0], arr[:, 1], 'bP', markersize=5.5,
                 label='Known $t_y$ (Neumann)', zorder=10)
     if known_ux_pts:
         arr = np.array(known_ux_pts)
-        ax.plot(arr[:, 0], arr[:, 1], 'rx', markersize=7, markeredgewidth=1.8,
+        ax.plot(arr[:, 0], arr[:, 1], 'rx', markersize=6.5, markeredgewidth=1.6,
                 label='Known $u_x$ (Dirichlet)', zorder=11)
     if known_uy_pts:
         arr = np.array(known_uy_pts)
-        ax.plot(arr[:, 0], arr[:, 1], 'rP', markersize=6,
+        ax.plot(arr[:, 0], arr[:, 1], 'rP', markersize=5.5,
                 label='Known $u_y$ (Dirichlet)', zorder=11)
 
-    # 5. Marcador para Ponto Controlado (Newton-Raphson control DOF)
-    if control_info:
+    # 5. Marcador para Ponto Controlado (apenas em análises de propagação coesiva CP)
+    if control_info and analysis_type == 'CP':
         cnid = control_info['node']
         cval = control_info['value']
         cdir = control_info['direction']
         cpt = coords.get(cnid, None)
         if cpt is not None:
             dir_str = "x" if cdir == 1 else "y"
-            ax.plot(cpt[0], cpt[1], '*', color='#006400', markersize=14, zorder=12,
+            ax.plot(cpt[0], cpt[1], '*', color='#006400', markersize=13, zorder=12,
                     label=f'Control Node {cnid} ($u_{dir_str} = {cval}$)')
             ax.annotate(f'Control Node {cnid}\n$u_{dir_str} = {cval}$',
-                        xy=cpt, xytext=(cpt[0] + 0.1 * max_delta, cpt[1] + 0.1 * max_delta),
-                        arrowprops=dict(facecolor='#006400', shrink=0.08, width=1.4, headwidth=6),
-                        fontsize=9, fontweight='bold', color='#006400',
+                        xy=cpt, xytext=(cpt[0] + 0.08 * max_delta, cpt[1] + 0.08 * max_delta),
+                        arrowprops=dict(facecolor='#006400', shrink=0.08, width=1.3, headwidth=5.5),
+                        fontsize=8.5, fontweight='bold', color='#006400',
                         bbox=dict(boxstyle='round,pad=0.25', facecolor='#eafaf1', edgecolor='#006400'),
                         zorder=13)
 
     # Ajustes finais da figura
-    margin = 0.20 * max_delta
-    ax.set_xlim(x_min - margin, x_max + margin)
-    ax.set_ylim(y_min - margin, y_max + margin)
+    margin_x = 0.08 * dx
+    margin_y = max(0.45 * dy, 0.08 * dx) if aspect_ratio > 3.0 else 0.20 * max_delta
+    ax.set_xlim(x_min - margin_x, x_max + margin_x)
+    ax.set_ylim(y_min - margin_y, y_max + margin_y)
     ax.set_aspect('equal')
     ax.set_xlabel('Coordenada $X$ (m)', fontsize=11, fontweight='bold')
     ax.set_ylabel('Coordenada $Y$ (m)', fontsize=11, fontweight='bold')
     ax.set_title('Multidomain Cohesive DBEM 2D: Malha e Condições de Contorno',
-                 fontsize=13, fontweight='bold', pad=14)
+                 fontsize=13, fontweight='bold', pad=12)
 
     # Legenda estruturada
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
+    legend_y = -0.22 if aspect_ratio > 3.0 else -0.14
     ax.legend(by_label.values(), by_label.keys(), loc='upper center',
-              bbox_to_anchor=(0.5, -0.12), ncol=3, fontsize=8.5,
+              bbox_to_anchor=(0.5, legend_y), ncol=3, fontsize=9,
               frameon=True, fancybox=True, shadow=True)
 
     plt.tight_layout()
