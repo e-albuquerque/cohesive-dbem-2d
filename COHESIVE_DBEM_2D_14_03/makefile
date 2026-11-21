@@ -59,7 +59,7 @@ MODULE_POSTPROCESSING.o: MODULE_DATA.o MODULE_GEOMETRIC_MAPPINGS.o MODULE_APPROX
 %.o: %.f90
 	@echo 'Building file: $<'
 	@echo 'Invoking: GNU Fortran Compiler'
-	$(FC) $(FCFLAGS) -c $< $(LDFLAGS)
+	$(FC) $(FCFLAGS) -c $<
 	@echo 'Finished building: $<'
 	@echo ' '
 

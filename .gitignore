@@ -6,9 +6,13 @@
 *.exe
 *.pdb
 *.ilk
+*.a
+*.so
+*.so.*
 MAIN_COHESIVE_DBEM_2D
 fort.*
 Debug/
+libraries/
 
 # Arquivos temporários e do sistema
 *~
