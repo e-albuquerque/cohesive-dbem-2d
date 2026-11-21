@@ -91,7 +91,7 @@ DO I=1,ORDER(ELEM)+1
 	T(1)=T(1)+AUX3*VALUES(I,1)
 	T(2)=T(2)+AUX3*VALUES(I,2)      
 ENDDO
-JAC=(T(1)**2+T(2)**2)**(0.5D0)
+JAC=DSQRT(T(1)*T(1)+T(2)*T(2))
 n(1)=T(2)/JAC
 n(2)=-T(1)/JAC  
 !
