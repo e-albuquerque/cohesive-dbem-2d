@@ -100,6 +100,7 @@ O projeto conta com três Jupyter Notebooks completos que cobrem tanto a anális
 - `fig15_shear_hs162.png`: **Fig. 15** — *Comparison of shear stress over the undamaged interface: $h_s = 1.62\text{ mm}$* (extremos de $\approx \mp 15,09\text{ MPa}$).
 - `fig26_force_displacement_hs108.png`: **Fig. 26** — *Force–displacement results for asymmetric debonding: $h_s = 1.08\text{ mm}$* (curva não linear **2D BEM - PID**).
 - `fig26_cohesive_damage_evolution_hs108.png`: Evolução do comprimento da trinca assimétrica $a(u)$ (análogo à **Fig. 30**) e perfil de degradação da rigidez coesiva $K_{nn}/k_{n0}$.
+- `debonding_animation_hs108.mp4` (gerado por `animate_debonding.py`): Animação em vídeo `.mp4` mostrando a malha DBEM 2D se deformando em escala $1:1$ (**Fig. 28**) em sincronia com o gráfico *Force × Central displacement* (**Fig. 26**).
 
 ---
 

@@ -583,6 +583,8 @@ OPEN(20,FILE='9_OUTPUT_COHESIVE_RESPONSE.txt',STATUS='UNKNOWN')
 WRITE(20,*) "       Knn          Knt          Ktn          Ktt          Dun          Dut"
 OPEN(30,FILE='10_OUTPUT_COHESIVE_STIFFNESS.txt',STATUS='UNKNOWN')
 WRITE(30,*) "       STEP          Knn          Ktt"
+OPEN(50,FILE='12_OUTPUT_NODAL_DISPLACEMENTS_STEPS.txt',STATUS='UNKNOWN')
+WRITE(50,*) "       STEP          NODE          Ux                Uy"
 WRITE(40,*) "STEP   ITER     Fu-Ft_V             F_V                T_M               S_S                UP_C_S     PSI_V"
 DO II=1,Ns
     criterionPSI = 1.D0
@@ -696,6 +698,13 @@ DO II=1,Ns
     ENDDO
     DO I=1,N_NODES
         WRITE(30,300)II,Knn(I),Ktt(I)
+        lambdaux = 1.D0
+        lambdauy = 1.D0
+        IF(COLLOCATION_TYPE(I).EQ."B")THEN
+            IF(BC(2*I-1).NE.0) lambdaux = lambda
+            IF(BC(2*I).NE.0)   lambdauy = lambda
+        ENDIF
+        WRITE(50,500)II,I,lambdaux*U(2*I-1),lambdauy*U(2*I)
     ENDDO
 
 ENDDO
@@ -703,6 +712,7 @@ CLOSE(10)
 CLOSE(20)
 CLOSE(30)
 CLOSE(40)
+CLOSE(50)
 
 DO I=1,N_NODES
     IF(COLLOCATION_TYPE(I).EQ."B")THEN
@@ -734,6 +744,7 @@ DEALLOCATE(dPSIdX,MATRIX,Fu_PRES,Ft_PRES)
 200 FORMAT(E14.7,8x,E14.7,8x,E14.7,8x,E14.7,8x,E14.7,8x,E14.7)
 300 FORMAT(I3,12x,F16.7,12x,F16.7)
 400 FORMAT(I3,4x,I3,4x,E14.7,4x,E14.7,4x,E14.7,4x,E14.7,4x,E14.7,4x,E14.7)
+500 FORMAT(I3,8x,I5,8x,E16.8,8x,E16.8)
 
 END SUBROUTINE SOLVE_NONLINEAR_SYSTEM
 !
