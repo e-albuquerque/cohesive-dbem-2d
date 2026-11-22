@@ -18,17 +18,17 @@ Unlike the Finite Element Method (FEM), which requires volumetric discretization
 
 For heterogeneous systems (e.g., a metallic substrate bonded to a polymeric adhesive block), the domain is decomposed into homogeneous, isotropic subregions $`\Omega_1, \Omega_2, \dots, \Omega_N`$. Within each subregion, the Displacement Boundary Integral Equation (DBIE) and the Traction Boundary Integral Equation (TBIE) are written as:
 
-$$
-c_{ij}(\mathbf{x}') u_j(\mathbf{x}') + \text{CPV} \int_{\Gamma} T_{ij}^*(\mathbf{x}', \mathbf{x}) u_j(\mathbf{x}) \, \mathrm{d}\Gamma = \int_{\Gamma} U_{ij}^*(\mathbf{x}', \mathbf{x}) t_j(\mathbf{x}) \, \mathrm{d}\Gamma
-$$
+```math
+c_{ij}(\mathbf{x}') u_j(\mathbf{x}') + \text{CPV} \int_{\Gamma} T_{ij}^{\ast}(\mathbf{x}', \mathbf{x}) u_j(\mathbf{x}) \, \mathrm{d}\Gamma = \int_{\Gamma} U_{ij}^{\ast}(\mathbf{x}', \mathbf{x}) t_j(\mathbf{x}) \, \mathrm{d}\Gamma
+```
 
-$$
-c_{ij}(\mathbf{x}') t_j(\mathbf{x}') + n_k(\mathbf{x}') \, \text{HFP} \int_{\Gamma} S_{kij}^*(\mathbf{x}', \mathbf{x}) u_j(\mathbf{x}) \, \mathrm{d}\Gamma = n_k(\mathbf{x}') \, \text{CPV} \int_{\Gamma} D_{kij}^*(\mathbf{x}', \mathbf{x}) t_j(\mathbf{x}) \, \mathrm{d}\Gamma
-$$
+```math
+c_{ij}(\mathbf{x}') t_j(\mathbf{x}') + n_k(\mathbf{x}') \, \text{HFP} \int_{\Gamma} S_{kij}^{\ast}(\mathbf{x}', \mathbf{x}) u_j(\mathbf{x}) \, \mathrm{d}\Gamma = n_k(\mathbf{x}') \, \text{CPV} \int_{\Gamma} D_{kij}^{\ast}(\mathbf{x}', \mathbf{x}) t_j(\mathbf{x}) \, \mathrm{d}\Gamma
+```
 
 where:
 - $`\mathbf{x}'`$ and $`\mathbf{x}`$ are the source (collocation) and field points;
-- $`U_{ij}^*, T_{ij}^*, D_{kij}^*, S_{kij}^*`$ are the Kelvin fundamental tensors for 2D elasticity (plane stress `PT` or plane strain `PD`);
+- $`U_{ij}^{\ast}, T_{ij}^{\ast}, D_{kij}^{\ast}, S_{kij}^{\ast}`$ are the Kelvin fundamental tensors for 2D elasticity (plane stress `PT` or plane strain `PD`);
 - $`\text{CPV}`$ and $`\text{HFP}`$ denote integrals evaluated in the Cauchy Principal Value and Hadamard Finite Part senses, respectively.
 
 ### 1.2 Discontinuous and Semi-Discontinuous Elements
