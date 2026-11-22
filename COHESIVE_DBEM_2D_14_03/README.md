@@ -1,123 +1,124 @@
-# DBEM 2D Coesivo Multidomínio (`COHESIVE_DBEM_2D`)
+# Multizone Cohesive DBEM 2D (`COHESIVE_DBEM_2D`)
 
-Código computacional em Fortran moderno (**OpenMP Multithread + LAPACK/BLAS**) com pré e pós-processamento em Python (**Gmsh + `meshio` + `matplotlib`**) para análise elástica linear e propagação de fratura/descolamento interfacial (*debonding*) em juntas coladas e estruturas compósitas bidimensionais, utilizando o **Método dos Elementos de Contorno Dual Multidomínio com Zona Coesiva (Multizone Cohesive DBEM 2D)**.
+Modern Fortran computational code (**OpenMP Multithread + LAPACK/BLAS**) with a Python preprocessing and postprocessing pipeline (**Gmsh + `meshio` + `matplotlib`**) for linear elastic analysis and interfacial fracture/debonding propagation in adhesively bonded joints and 2D composite structures, using the **Multizone Cohesive Dual Boundary Element Method (Multizone Cohesive DBEM 2D)**.
 
-Este repositório e sua formulação estão diretamente associados ao artigo científico:
+This repository and its formulation are directly associated with the scientific paper:
 
 > **Comparative analysis of adhesive debonding in three-point bending tests using boundary element methods: Coupled criterion versus interface damage model**  
 > *Sérgio Gustavo Ferreira Cordeiro, Thiago V. Birro, René Quispe Rodriguez, Eder Lima de Albuquerque, Lucas Silveira Campos, Jairo Francisco Useche Vivero, Éric Paroissien, Maëlenn Aufray, Frédéric Lachaud.*  
 > **Engineering Analysis with Boundary Elements (EABE)**, vol. 180, 106474, 2025.  
-> Arquivo de referência: [ArtigoEABE2025.pdf](../ArtigoEABE2025.pdf)
+> Reference file: [ArtigoEABE2025.pdf](../ArtigoEABE2025.pdf)
 
 ---
 
-## 1. Visão Geral da Formulação Teórica
+## 1. Theoretical Formulation Overview
 
-### 1.1 Método dos Elementos de Contorno Multidomínio (Multizone DBEM)
-Diferente do Método dos Elementos Finitos (MEF), que exige a discretização volumétrica de todo o domínio e sofre com severa distorção de malha em camadas adesivas finas, o BEM discretiza exclusivamente as fronteiras e interfaces dos corpos.
+### 1.1 Multizone Dual Boundary Element Method (Multizone DBEM)
+Unlike the Finite Element Method (FEM), which requires volumetric discretization of the entire domain and suffers from severe mesh distortion in thin adhesive layers, the BEM discretizes only the boundaries and interfaces of the bodies.
 
-Para sistemas heterogêneos (ex.: substrato metálico colado a um bloco de adesivo polimérico), o domínio é decomposto em sub-regiões $\Omega_1, \Omega_2, \dots, \Omega_N$. Em cada sub-região homogênea e isotrópica, a Equação Integral de Contorno de Deslocamento (DBIE) e a Equação Integral de Contorno de Tração (TBIE) são dadas por:
+For heterogeneous systems (e.g., a metallic substrate bonded to a polymeric adhesive block), the domain is decomposed into homogeneous, isotropic subregions $\Omega_1, \Omega_2, \dots, \Omega_N$. Within each subregion, the Displacement Boundary Integral Equation (DBIE) and the Traction Boundary Integral Equation (TBIE) are written as:
 
 $$c_{ij}(\mathbf{x}') u_j(\mathbf{x}') + \text{CPV} \int_{\Gamma} T_{ij}^*(\mathbf{x}', \mathbf{x}) u_j(\mathbf{x}) \, \mathrm{d}\Gamma = \int_{\Gamma} U_{ij}^*(\mathbf{x}', \mathbf{x}) t_j(\mathbf{x}) \, \mathrm{d}\Gamma$$
 
 $$c_{ij}(\mathbf{x}') t_j(\mathbf{x}') + n_k(\mathbf{x}') \, \text{HFP} \int_{\Gamma} S_{kij}^*(\mathbf{x}', \mathbf{x}) u_j(\mathbf{x}) \, \mathrm{d}\Gamma = n_k(\mathbf{x}') \, \text{CPV} \int_{\Gamma} D_{kij}^*(\mathbf{x}', \mathbf{x}) t_j(\mathbf{x}) \, \mathrm{d}\Gamma$$
 
-onde:
-- $\mathbf{x}'$ e $\mathbf{x}$ são os pontos fonte (colocação) e campo;
-- $U_{ij}^*, T_{ij}^*, D_{kij}^*, S_{kij}^*$ são os tensores fundamentais de Kelvin para elasticidade 2D (estado plano de tensão `PT` ou estado plano de deformação `PD`);
-- $\text{CPV}$ e $\text{HFP}$ indicam integrais avaliadas no sentido do Valor Principal de Cauchy e Parte Finita de Hadamard.
+where:
+- $\mathbf{x}'$ and $\mathbf{x}$ are the source (collocation) and field points;
+- $U_{ij}^*, T_{ij}^*, D_{kij}^*, S_{kij}^*$ are the Kelvin fundamental tensors for 2D elasticity (plane stress `PT` or plane strain `PD`);
+- $\text{CPV}$ and $\text{HFP}$ denote integrals evaluated in the Cauchy Principal Value and Hadamard Finite Part senses, respectively.
 
-### 1.2 Elementos Descontínuos e Semidescontínuos
-Para evitar indefinições do vetor normal unitário em quinas geométricas e transições de condições de contorno/interface:
-- Nós duplos são alocados nos vértices e extremidades de interface;
-- Nos elementos descontínuos (`D`, `LD`, `RD`), os **pontos de colocação** são posicionados no interior do elemento paramétrico ($\xi = \pm 1/3$ para elementos lineares), garantindo avaliação suave e precisa das trações interfaciais.
+### 1.2 Discontinuous and Semi-Discontinuous Elements
+To avoid ambiguities in the unit outward normal vector at geometric corners and boundary/interface transitions:
+- Double nodes are placed at corners and interface endpoints;
+- On discontinuous elements (`D`, `LD`, `RD`), the **collocation points** are located inside the parametric element ($\xi = \pm 1/3$ for linear elements), ensuring smooth and accurate evaluation of interfacial tractions.
 
-### 1.3 Acoplamento Interfacial e Modelo de Dano Coesivo (PID)
-As interfaces entre sub-regiões são divididas em pares de superfícies:
-- Superfície **$I^-$ (`Im`)**: associada à sub-região 1 (ex.: substrato);
-- Superfície **$I^+$ (`Ip`)**: associada à sub-região 2 (ex.: adesivo).
+### 1.3 Interfacial Coupling and Progressive Interface Damage Model (PID)
+Interfaces between subregions are divided into paired surfaces:
+- Surface **$I^-$ (`Im`)**: associated with subregion 1 (e.g., substrate);
+- Surface **$I^+$ (`Ip`)**: associated with subregion 2 (e.g., adhesive).
 
-O solver suporta três modos de análise configuráveis em `4_ANALYSIS_PARAMETERS.txt`:
-1. **Análise Elástica Linear (`LE`)**: avalia as tensões normais de descolamento (*Peel Stress*, $\sigma$) e de cisalhamento (*Shear Stress*, $\tau$) ao longo da interface íntegra com rigidez penalizada ($K_{n0}, K_{t0}$), usada na aplicação do **Critério Acoplado (Coupled Criterion - CC)**.
-2. **Propagação Coesiva Não Linear Simétrica (`CP`)**: utiliza uma lei de tração-separação bilinear em Modo Misto (Modo I: $K_{n0}, \Phi_n, \sigma_{\max}$; Modo II: $K_{t0}, \Phi_t, \tau_{\max}$) com variável escalar de dano $\beta \in [0, 1]$ resolvida incrementalmente via **Newton-Raphson** com controle de deslocamento ou salto relativo.
-3. **Propagação Coesiva Não Linear Assimétrica (`CA`)**: reproduz o descolamento assimétrico observado experimentalmente no ensaio 3PBT (Seção 6.3.2 do artigo EABE 2025), bloqueando a iniciação espúria na extremidade direita ($\sigma_c = 10^{50}\text{ MPa}$) para que uma única trinca nuclee e se propague a partir da extremidade esquerda.
+The solver supports three analysis modes configured in `4_ANALYSIS_PARAMETERS.txt`:
+1. **Linear Elastic Analysis (`LE`)**: evaluates normal peel ($\sigma$) and shear ($\tau$) stresses along the undamaged weak interface with penalized stiffness ($k_{n0}, k_{t0}$), used in the **Coupled Criterion (CC)** inverse analysis.
+2. **Symmetric Nonlinear Cohesive Propagation (`CP`)**: employs a mixed-mode bilinear traction-separation law (Mode I: $K_{n0}, \Phi_n, \sigma_{\max}$; Mode II: $K_{t0}, \Phi_t, \tau_{\max}$) with a scalar damage variable $D \in [0, 1]$ solved incrementally via **Newton-Raphson** continuation with displacement or relative-opening control.
+3. **Asymmetric Nonlinear Cohesive Propagation (`CA`)**: reproduces the asymmetric debonding observed experimentally in the 3PBT (Section 6.3.2 of the EABE 2025 paper) by assigning $\sigma_c = 10^{50}\text{ MPa}$ to the right corner of the interface so that a single crack nucleates and propagates exclusively from the left corner.
 
 ---
 
-## 2. Arquitetura Modular e Otimizações de Performance (OpenMP)
+## 2. Modular Architecture and Performance Optimizations (OpenMP)
 
-O solver Fortran foi revisado e otimizado para alta performance mantendo a clareza matemática da formulação:
+The Fortran solver has been reviewed and optimized for high performance while preserving the mathematical clarity of the formulation:
 
-| Módulo | Arquivo | Responsabilidade e Otimizações |
+| Module | File | Responsibility and Optimizations |
 |---|---|---|
-| **Principal** | `MAIN_COHESIVE_DBEM_2D.f90` | Inicialização do ambiente OpenMP e medição de tempo real (*wall-clock*) via `omp_get_wtime()`. |
-| **Dados Globais** | `MODULE_DATA.f90` | Estruturas globais em precisão dupla (`real64`), matrizes $G$ e $H$, conectividades e propriedades. |
-| **Entrada de Dados** | `MODULE_INPUT_DATA.f90` | Leitura dos 5 arquivos `.txt`, quadratura de Gauss-Legendre e mapeamento topológico sem vazamentos de memória. |
-| **Tratamento de Dados** | `MODULE_DATA_TREATMENT.f90` | Cálculo dos pontos de colocação descontínuos e pareamento paralelo (`!$OMP PARALLEL DO`) dos nós coesivos $I^- \leftrightarrow I^+$. |
-| **Mapeamento Geométrico** | `MODULE_GEOMETRIC_MAPPINGS.f90` | Interpolação geométrica de Lagrange, Jacobiano (`DSQRT`) e vetor normal exterior. |
-| **Funções de Forma** | `MODULE_APPROXIMATION_FUNCTIONS.f90` | Funções de base e derivadas nos pontos nodais e de colocação. |
-| **Integração Numérica** | `MODULE_NUMERICAL_INTEGRATION.f90` | Integrações regulares e singulares (CPV/HFP) para DBIE e TBIE utilizando *arrays* automáticos na *stack* (eliminando $\sim 400.000$ alocações dinâmicas no *heap*) e constantes elásticas pré-calculadas fora do laço de Gauss. |
-| **Análise e Montagem** | `MODULE_ANALYSIS.f90` | Montagem das matrizes $H$ e $G$ paralelizada com **`!$OMP PARALLEL DO SCHEDULE(DYNAMIC)`** e tabela de busca rápida $O(1)$ de elementos por nó (`NODE_ELEM`). |
-| **Solver Linear/Não Linear** | `MODULE_SOLVER.f90` | Montagem paralela da matriz do sistema acoplado, produto esparso de condições de contorno prescritas e solução direta via LAPACK (`DGESV`). |
-| **Pós-processamento** | `MODULE_POSTPROCESSING.f90` | Avaliação paralelizada com OpenMP de deslocamentos e tensões em pontos internos e de contorno, exportação de `11_OUTPUT_BOUNDARY_STRUCTURAL_RESPONSE.txt` e arquivo `OUTPUT.vtk` portável. |
+| **Main Program** | `MAIN_COHESIVE_DBEM_2D.f90` | OpenMP environment initialization and wall-clock timing via `omp_get_wtime()`. |
+| **Global Data** | `MODULE_DATA.f90` | Double-precision (`real64`) global structures, $G$ and $H$ matrices, connectivities, and material properties. |
+| **Input Data** | `MODULE_INPUT_DATA.f90` | Reading of the 5 `.txt` input files, Gauss-Legendre quadrature, and leak-free topological mapping. |
+| **Data Treatment** | `MODULE_DATA_TREATMENT.f90` | Discontinuous collocation point computation and parallel (`!$OMP PARALLEL DO`) pairing of $I^- \leftrightarrow I^+$ cohesive nodes. |
+| **Geometric Mappings** | `MODULE_GEOMETRIC_MAPPINGS.f90` | Lagrange geometric interpolation, Jacobian (`DSQRT`), and outward normal vector. |
+| **Shape Functions** | `MODULE_APPROXIMATION_FUNCTIONS.f90` | Basis functions and derivatives at nodal and collocation points. |
+| **Numerical Integration** | `MODULE_NUMERICAL_INTEGRATION.f90` | Regular and singular (CPV/HFP) integration for DBIE and TBIE using stack-allocated automatic arrays (eliminating $\sim 400{,}000$ dynamic heap allocations) and hoisted elastic constants outside the Gauss loop. |
+| **Analysis & Assembly** | `MODULE_ANALYSIS.f90` | Assembly of $H$ and $G$ matrices parallelized with **`!$OMP PARALLEL DO SCHEDULE(DYNAMIC)`** and an $O(1)$ node-to-element lookup table (`NODE_ELEM`). |
+| **Linear / Nonlinear Solver** | `MODULE_SOLVER.f90` | Parallel assembly of the coupled system matrix, sparse evaluation of prescribed boundary conditions, linear solution via LAPACK (`DGESV`), smart LU factorization caching (`DGETRF`/`DGETRS`) for nonlinear Newton-Raphson iterations, and step-by-step displacement export (`12_OUTPUT_NODAL_DISPLACEMENTS_STEPS.txt`). |
+| **Postprocessing** | `MODULE_POSTPROCESSING.f90` | OpenMP-parallelized evaluation of displacements and stresses at internal and boundary points, exporting `11_OUTPUT_BOUNDARY_STRUCTURAL_RESPONSE.txt` and portable `OUTPUT.vtk`. |
 
-### Ganho de Desempenho Alcançado
-No benchmark do artigo EABE 2025 ($N_{\text{nodes}} = 445$ nós de contorno, $N_{\text{elem}} = 445$ elementos, $N_{\text{Gauss}} = 200$ pontos de quadratura por elemento, processador de 8 threads):
-- **Versão original (`-O0 -fbounds-check`, sequencial)**: $\approx 38,05\text{ s}$ por simulação.
-- **Com otimização de compilador (`-O3`, sequencial)**: $\approx 11,75\text{ s}$ por simulação ($3,2\times$ mais rápido).
-- **Com paralelização OpenMP + eliminação de alocações no laço interno + `-O3`**: **$\approx 2,97\text{ s}$ por simulação** (**$12,8\times$ mais rápido**, mantendo precisão numérica idêntica até a 9ª casa decimal).
-
----
-
-## 3. Notebooks Interativos (Execução Local e Google Colab)
-
-O projeto conta com três Jupyter Notebooks completos que cobrem tanto a análise elástica linear quanto a análise não linear incremental de dano coesivo (PID):
-
-1. **`Run_cohesive_dbem_2d.ipynb`** (*Análise Linear Elástica — Local / Multiplataforma*):
-   - Executa o fluxo completo desde a criação do arquivo `.geo` no Gmsh, geração da malha `.msh`, pré-processamento via `meshio`, compilação do Fortran e resolução elástica para $h_s = 1.08\text{ mm}$ e $h_s = 1.62\text{ mm}$, reproduzindo a **Fig. 10** e as **Figs. 12, 13, 14 e 15** do artigo.
-2. **`Run_cohesive_dbem_2d_on_Colab.ipynb`** (*Análise Linear Elástica — Google Colab Linux*):
-   - Projetado especificamente para execução no **Google Colab (Ubuntu Linux)**, seguindo o padrão de comandos diretos (`!apt-get`, `!make`, `!gmsh`, `!./MAIN_COHESIVE_DBEM_2D`).
-3. **`Run_cohesive_dbem_2d_nlinear.ipynb`** (*Análise Não Linear de Dano Progressivo PID — Passo a Passo*):
-   - Detalha passo a passo a teoria e a implementação da análise não linear incremental por controle de deslocamento (Newton-Raphson com lei coesiva bilinear em Modo Misto) para descolamento assimétrico (`ANALYSIS_TYPE = 'CA'`), reproduzindo a **Fig. 26** (*Force–displacement results for asymmetric debonding: $h_s = 1.08\text{ mm}$*) e a evolução do comprimento da trinca (análogo à **Fig. 30**).
+### Achieved Speedup
+On the EABE 2025 benchmark ($N_{\text{nodes}} = 445$ boundary nodes, $N_{\text{elem}} = 445$ elements, $N_{\text{Gauss}} = 200$ quadrature points per element, 8-thread CPU):
+- **Original version (`-O0 -fbounds-check`, sequential)**: $\approx 38.05\text{ s}$ per simulation.
+- **Compiler optimization (`-O3`, sequential)**: $\approx 11.75\text{ s}$ per simulation ($3.2\times$ faster).
+- **OpenMP parallelization + stack arrays + `-O3`**: **$\approx 2.97\text{ s}$ per simulation** (**$12.8\times$ faster**, preserving identical numerical results to the 9th decimal place).
 
 ---
 
-## 4. Benchmark do Artigo EABE 2025 (Ensaio de Flexão em 3 Pontos - Fig. 10 e Fig. 26)
+## 3. Interactive Jupyter Notebooks (Local & Google Colab)
 
-### 4.1 Parâmetros Geométricos e Físicos
-- **Substrato ($\Omega_1$)**: comprimento $L_s = 50,0\text{ mm}$, espessura $h_s = 1,08\text{ mm}$ ou $h_s = 1,62\text{ mm}$, $E_1 = 136\,000\text{ MPa}$ ($2 \times 68\,000\text{ MPa}$ pela razão de larguras $b_1/b_2$), $\nu_1 = 0,33$.
-- **Adesivo ($\Omega_2$)**: comprimento de colagem $L_a = 25,0\text{ mm}$ ($x \in [-12,5; +12,5]\text{ mm}$), espessura $h_a = 4,0\text{ mm}$, $E_2 = 3\,000\text{ MPa}$, $\nu_2 = 0,35$.
-- **Apoios e Carregamento**: vão entre apoios $d_{\text{supp}} = 35,90\text{ mm}$ (rolete à esquerda $u_y = 0$, apoio fixo à direita $u_x = u_y = 0$, largura $0,12\text{ mm}$) e deslocamento vertical prescrito no topo central ($w_{\text{load}} = 2,0\text{ mm}$):
-  - Para $h_s = 1,08\text{ mm}$: $U_c = 0,576\text{ mm}$ ($F_c = 178\text{ N}$, $\sigma_c = 44,654\text{ MPa}$, $\mathcal{G}_c = 0,520\text{ N/mm}$, $k_{n0} = k_{t0} = 2000\text{ MPa/mm}$);
-  - Para $h_s = 1,62\text{ mm}$: $U_c = 0,6093\text{ mm}$ ($F_c = 326\text{ N}$, $\sigma_c = 45,906\text{ MPa}$, $\mathcal{G}_c = 0,5371\text{ N/mm}$, $k_{n0} = k_{t0} = 948\text{ MPa/mm}$).
+The project includes three complete Jupyter Notebooks covering both linear elastic and nonlinear incremental progressive interface damage (PID) analyses:
 
-### 4.2 Figuras Geradas Automaticamente
-- `mesh_and_boundary_conditions.png`: Reprodução da **Fig. 10** (malha e condições de contorno para análise linear $h_s = 1,08\text{ mm}$).
-- `mesh_and_boundary_conditions_nlinear.png`: Malha, condições de contorno e nó de controle para a análise não linear por controle de deslocamento ($h_s = 1,08\text{ mm}$).
-- `fig12_peel_hs108.png`: **Fig. 12** — *Peel stress over the undamaged interface: $h_s = 1.08\text{ mm}$* (pico de $\approx 43,45\text{ MPa}$ nas bordas $x = \pm 12,5\text{ mm}$).
-- `fig13_shear_hs108.png`: **Fig. 13** — *Shear stress over the undamaged interface: $h_s = 1.08\text{ mm}$* (extremos antissimétricos de $\approx \mp 13,96\text{ MPa}$).
-- `fig14_peel_hs162.png`: **Fig. 14** — *Comparison of peel Stress over the undamaged interface: $h_s = 1.62\text{ mm}$* (pico de $\approx 46,15\text{ MPa}$).
-- `fig15_shear_hs162.png`: **Fig. 15** — *Comparison of shear stress over the undamaged interface: $h_s = 1.62\text{ mm}$* (extremos de $\approx \mp 15,09\text{ MPa}$).
-- `fig26_force_displacement_hs108.png`: **Fig. 26** — *Force–displacement results for asymmetric debonding: $h_s = 1.08\text{ mm}$* (curva não linear **2D BEM - PID**).
-- `fig26_cohesive_damage_evolution_hs108.png`: Evolução do comprimento da trinca assimétrica $a(u)$ (análogo à **Fig. 30**) e perfil de degradação da rigidez coesiva $K_{nn}/k_{n0}$.
-- `debonding_animation_hs108.mp4` (gerado por `animate_debonding.py`): Animação em vídeo `.mp4` mostrando a malha DBEM 2D se deformando em escala $1:1$ (**Fig. 28**) em sincronia com o gráfico *Force × Central displacement* (**Fig. 26**).
+1. **`Run_cohesive_dbem_2d.ipynb`** (*Linear Elastic Analysis — Local / Cross-Platform*):
+   - Runs the entire workflow from parametric `.geo` creation in Gmsh, `.msh` mesh generation, `meshio` preprocessing, Fortran compilation, and linear elastic solving for $h_s = 1.08\text{ mm}$ and $h_s = 1.62\text{ mm}$, reproducing **Fig. 10** and **Figs. 12, 13, 14, and 15** of the paper.
+2. **`Run_cohesive_dbem_2d_on_Colab.ipynb`** (*Linear Elastic Analysis — Google Colab Linux*):
+   - Specifically designed for execution on **Google Colab (Ubuntu Linux)** using direct shell commands (`!apt-get`, `!make`, `!gmsh`, `!./MAIN_COHESIVE_DBEM_2D`).
+3. **`Run_cohesive_dbem_2d_nlinear.ipynb`** (*Nonlinear Progressive Interface Damage Analysis — Step by Step*):
+   - Details step by step the theory and implementation of displacement-controlled incremental nonlinear analysis (Newton-Raphson with a mixed-mode bilinear cohesive law) for asymmetric debonding (`ANALYSIS_TYPE = 'CA'`), reproducing **Fig. 26** (*Force–displacement results for asymmetric debonding: $h_s = 1.08\text{ mm}$*), crack length evolution (analogous to **Fig. 30**), and the synchronized `.mp4` animation.
 
 ---
 
-## 5. Compilação e Execução via Linha de Comando
+## 4. EABE 2025 Benchmark (Three-Point Bending Test — Fig. 10 & Fig. 26)
 
-### No Windows (MSYS2 MinGW-w64 UCRT64)
+### 4.1 Geometric and Physical Parameters
+- **Substrate ($\Omega_1$)**: length $L_s = 50.0\text{ mm}$, thickness $h_s = 1.08\text{ mm}$ or $h_s = 1.62\text{ mm}$, $E_1 = 136{,}000\text{ MPa}$ ($2 \times 68{,}000\text{ MPa}$ scaled by the width ratio $b_1/b_2$), $\nu_1 = 0.33$.
+- **Adhesive ($\Omega_2$)**: bonded overlap length $L_a = 25.0\text{ mm}$ ($x \in [-12.5, +12.5]\text{ mm}$), thickness $h_a = 4.0\text{ mm}$, $E_2 = 3{,}000\text{ MPa}$, $\nu_2 = 0.35$.
+- **Supports and Loading**: span between supports $d_{\text{supp}} = 35.90\text{ mm}$ (left rolling support $u_y = 0$, right fixed support $u_x = u_y = 0$, width $0.12\text{ mm}$) and central top loading zone ($w_{\text{load}} = 2.0\text{ mm}$):
+  - For $h_s = 1.08\text{ mm}$: $U_c = 0.576\text{ mm}$ ($F_c = 178\text{ N}$, $\sigma_c = 44.654\text{ MPa}$, $\mathcal{G}_c = 0.520\text{ N/mm}$, $k_{n0} = k_{t0} = 2000\text{ MPa/mm}$);
+  - For $h_s = 1.62\text{ mm}$: $U_c = 0.6093\text{ mm}$ ($F_c = 326\text{ N}$, $\sigma_c = 45.906\text{ MPa}$, $\mathcal{G}_c = 0.5371\text{ N/mm}$, $k_{n0} = k_{t0} = 948\text{ MPa/mm}$).
+
+### 4.2 Automatically Generated Figures & Animation
+- `mesh_and_boundary_conditions.png`: Reproduction of **Fig. 10** (mesh and boundary conditions for linear analysis, $h_s = 1.08\text{ mm}$).
+- `mesh_and_boundary_conditions_nlinear.png`: Mesh, boundary conditions, and control node for displacement-controlled nonlinear analysis ($h_s = 1.08\text{ mm}$).
+- `fig12_peel_hs108.png`: **Fig. 12** — *Peel stress over the undamaged interface: $h_s = 1.08\text{ mm}$* (peak $\approx 43.45\text{ MPa}$ at the edges $x = \pm 12.5\text{ mm}$).
+- `fig13_shear_hs108.png`: **Fig. 13** — *Shear stress over the undamaged interface: $h_s = 1.08\text{ mm}$* (antisymmetric extrema $\approx \mp 13.96\text{ MPa}$).
+- `fig14_peel_hs162.png`: **Fig. 14** — *Comparison of peel Stress over the undamaged interface: $h_s = 1.62\text{ mm}$* (peak $\approx 46.15\text{ MPa}$).
+- `fig15_shear_hs162.png`: **Fig. 15** — *Comparison of shear stress over the undamaged interface: $h_s = 1.62\text{ mm}$* (extrema $\approx \mp 15.09\text{ MPa}$).
+- `fig26_force_displacement_hs108.png`: **Fig. 26** — *Force–displacement results for asymmetric debonding: $h_s = 1.08\text{ mm}$* (nonlinear **2D BEM - PID** curve).
+- `fig26_cohesive_damage_evolution_hs108.png`: Asymmetric crack length evolution $a(u)$ (analogous to **Fig. 30**) and normalized cohesive stiffness profile $K_{nn}/k_{n0}$.
+- `debonding_animation_hs108.mp4` (generated by `animate_debonding.py`): Synchronized `.mp4` animation showing the 2D DBEM mesh deforming on a $1:1$ scale (**Fig. 28**) alongside the *Force × Central displacement* graph (**Fig. 26**).
+
+---
+
+## 5. Command-Line Build and Execution
+
+### Windows (MSYS2 MinGW-w64 UCRT64)
 ```powershell
 $env:PATH = "C:\msys64\ucrt64\bin;C:\msys64\usr\bin;" + $env:PATH
+pip install -r requirements.txt
 mingw32-make clean
 mingw32-make
 .\MAIN_COHESIVE_DBEM_2D.exe
 ```
 
-### No Linux / Google Colab
+### Linux / Google Colab
 ```bash
 sudo apt-get update && sudo apt-get install -y gfortran liblapack-dev libblas-dev gmsh
-pip install numpy matplotlib meshio gmsh
+pip install -r requirements.txt
 make clean && make
 ./MAIN_COHESIVE_DBEM_2D
 ```
