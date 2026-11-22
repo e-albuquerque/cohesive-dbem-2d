@@ -260,29 +260,29 @@ def create_debonding_animation(sim_dir="sim_fig26_nlinear", output_mp4="debondin
     ax_mesh.set_ylim(-10.8, 5.4)
     ax_mesh.set_aspect("equal")
     ax_mesh.grid(True, linestyle="--", alpha=0.35)
-    ax_mesh.set_xlabel("Coordenada $x$ (mm)", fontsize=11, fontfamily="serif")
-    ax_mesh.set_ylabel("Coordenada $y$ (mm)", fontsize=11, fontfamily="serif")
+    ax_mesh.set_xlabel("$x$ Coordinate (mm)", fontsize=11, fontfamily="serif")
+    ax_mesh.set_ylabel("$y$ Coordinate (mm)", fontsize=11, fontfamily="serif")
     ax_mesh.set_title(
-        r"Descolamento Assimétrico no Ensaio 3PBT — Configuração Deformada $C_n$ ($h_s = 1.08$ mm, Escala 1:1)",
+        r"Asymmetric Debonding in 3PBT — Deformed Configuration $C_n$ ($h_s = 1.08$ mm, Scale 1:1)",
         fontsize=12, fontweight="bold", pad=10
     )
 
     # Contorno indeformado de referência C0 (tracejado cinza claro)
     c0_segs = [np.column_stack([x0[i], y0[i]]) for i in range(n_elem)]
-    lc_c0 = LineCollection(c0_segs, colors="#bbbbbb", linewidths=0.9, linestyles="--", zorder=1, label=r"Configuração Inicial $C_0$")
+    lc_c0 = LineCollection(c0_segs, colors="#bbbbbb", linewidths=0.9, linestyles="--", zorder=1, label=r"Initial Configuration $C_0$")
     ax_mesh.add_collection(lc_c0)
 
     # Apoios fixo (direita) e móvel/rolete (esquerda) em y = 0, x = +-17.95 mm
-    ax_mesh.plot([-17.95], [-0.35], marker="^", color="#d62728", markersize=8, zorder=6, label=r"Apoios ($x = \pm 17.95$ mm)")
+    ax_mesh.plot([-17.95], [-0.35], marker="^", color="#d62728", markersize=8, zorder=6, label=r"Supports ($x = \pm 17.95$ mm)")
     ax_mesh.plot([17.95], [-0.35], marker="^", color="#d62728", markersize=8, zorder=6)
 
     # Polígonos preenchidos para Substrato (Omega_1) e Adesivo (Omega_2)
     poly_sub1 = Polygon(np.column_stack([x0[sub1_indices, 0], y0[sub1_indices, 0]]),
                         closed=True, facecolor="#1f77b4", alpha=0.18, edgecolor="none", zorder=2,
-                        label=r"Substrato $\Omega_1$ (Alumínio 2024-T3)")
+                        label=r"Substrate $\Omega_1$ (Aluminum 2024-T3)")
     poly_sub2 = Polygon(np.column_stack([x0[sub2_indices, 0], y0[sub2_indices, 0]]),
                         closed=True, facecolor="#2ca02c", alpha=0.22, edgecolor="none", zorder=2,
-                        label=r"Adesivo $\Omega_2$ (DGEBA/DETA)")
+                        label=r"Adhesive $\Omega_2$ (DGEBA/DETA)")
     ax_mesh.add_patch(poly_sub1)
     ax_mesh.add_patch(poly_sub2)
 
@@ -293,7 +293,7 @@ def create_debonding_animation(sim_dir="sim_fig26_nlinear", output_mp4="debondin
     # Coleção destacando os elementos da interface coesiva (vermelho onde descolou, verde onde íntegro)
     int_segs_init = [np.column_stack([x0[i], y0[i]]) for i in int_indices]
     lc_interface = LineCollection(int_segs_init, colors="#2ca02c", linewidths=2.2, zorder=5,
-                                  label="Interface Coesiva (Verde: Íntegra | Vermelho: Trinca)")
+                                  label="Cohesive Interface (Green: Intact | Red: Crack)")
     ax_mesh.add_collection(lc_interface)
 
     # Nós dos elementos de contorno (pontos pretos como na Fig. 28 do artigo)
@@ -328,7 +328,7 @@ def create_debonding_animation(sim_dir="sim_fig26_nlinear", output_mp4="debondin
     )
 
     # Curva completa de fundo (tracejada suave como guia visual)
-    ax_plot.plot(u_mm, F_N, "--", color="#b0c4de", linewidth=1.3, zorder=2, label="Trajetória Completa (2D BEM - PID)")
+    ax_plot.plot(u_mm, F_N, "--", color="#b0c4de", linewidth=1.3, zorder=2, label="Complete Path (2D BEM - PID)")
 
     # Curva progressiva azul com marcadores circulares abertos (idêntica à Fig. 26)
     line_pid_curve, = ax_plot.plot([], [], "-", color="blue", linewidth=2.0, zorder=4)
@@ -339,7 +339,7 @@ def create_debonding_animation(sim_dir="sim_fig26_nlinear", output_mp4="debondin
     # Marcador de destaque do estado atual (ponto vermelho/dourado sincronizado)
     current_pt, = ax_plot.plot([], [], "o", color="#d62728", markersize=8.5,
                                markerfacecolor="#ffdd57", markeredgecolor="#d62728",
-                               markeredgewidth=2.0, zorder=7, label="Estado Atual")
+                               markeredgewidth=2.0, zorder=7, label="Current State")
 
     # Linha vertical guia sincronizando o deslocamento atual no gráfico
     vline_u = ax_plot.axvline(0.0, color="#d62728", linestyle=":", linewidth=1.2, alpha=0.7, zorder=3)
@@ -402,11 +402,11 @@ def create_debonding_animation(sim_dir="sim_fig26_nlinear", output_mp4="debondin
 
         # 5. Atualiza texto de diagnóstico na malha
         step_display = s1 if alpha > 0.5 else s0
-        regime_str = "Elástico Íntegro" if step_display <= 13 else ("Nucleação / Salto Brusco" if step_display == 14 else "Propagação Coesiva (PID)")
+        regime_str = "Undamaged Elastic" if step_display <= 13 else ("Nucleation / Snap-Down" if step_display == 14 else "Cohesive Propagation (PID)")
         info_text.set_text(
-            f"Passo: {step_display:02d}/{sim['n_steps']} ({regime_str})\n"
+            f"Step: {step_display:02d}/{sim['n_steps']} ({regime_str})\n"
             f"u = {u_curr:.3f} mm  |  F = {F_curr:.1f} N\n"
-            f"Trinca assimétrica: a = {a_curr:.2f} mm"
+            f"Asymmetric crack: a = {a_curr:.2f} mm"
         )
 
         # 6. Atualiza curva Força x Deslocamento no painel inferior

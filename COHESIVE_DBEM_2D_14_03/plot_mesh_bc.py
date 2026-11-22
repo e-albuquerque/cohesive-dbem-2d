@@ -459,9 +459,9 @@ def show_dbem_geometry_and_bcs(data, save_path='mesh_and_boundary_conditions.png
     ax.set_xlim(x_min - margin_x, x_max + margin_x)
     ax.set_ylim(y_min - margin_y, y_max + margin_y)
     ax.set_aspect('equal')
-    ax.set_xlabel('Coordenada $X$ (m)', fontsize=11, fontweight='bold')
-    ax.set_ylabel('Coordenada $Y$ (m)', fontsize=11, fontweight='bold')
-    ax.set_title('Multidomain Cohesive DBEM 2D: Malha e Condições de Contorno',
+    ax.set_xlabel('$X$ Coordinate (m)', fontsize=11, fontweight='bold')
+    ax.set_ylabel('$Y$ Coordinate (m)', fontsize=11, fontweight='bold')
+    ax.set_title('Multidomain Cohesive DBEM 2D: Mesh and Boundary Conditions',
                  fontsize=13, fontweight='bold', pad=12)
 
     # Legenda estruturada
