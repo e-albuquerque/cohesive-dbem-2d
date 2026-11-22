@@ -44,26 +44,26 @@ This repository reproduces the numerical benchmarks presented in the following s
 ## 2. Highlights and Reproduced Results
 
 ### 2.1 Boundary Element Mesh and Boundary Conditions (Fig. 10)
-Multidomain modeling of the Three-Point Bending Test (3PBT, ISO 14679-1997 standard) consisting of an Aluminum 2024-T3 substrate ($\Omega_1$, $L_s = 50\text{ mm}$, $h_s = 1.08\text{ mm}$ or $1.62\text{ mm}$) bonded to a DGEBA/DETA epoxy adhesive block ($\Omega_2$, $L_a = 25\text{ mm}$, $h_a = 4.0\text{ mm}$):
+Multidomain modeling of the Three-Point Bending Test (3PBT, ISO 14679-1997 standard) consisting of an Aluminum 2024-T3 substrate ($`\Omega_1`$, $`L_s = 50\text{ mm}`$, $`h_s = 1.08\text{ mm}`$ or $`1.62\text{ mm}`$) bonded to a DGEBA/DETA epoxy adhesive block ($`\Omega_2`$, $`L_a = 25\text{ mm}`$, $`h_a = 4.0\text{ mm}`$):
 
 ![Nonlinear Mesh and Boundary Conditions](COHESIVE_DBEM_2D_14_03/mesh_and_boundary_conditions_nlinear.png)
 
 ### 2.2 Peel and Shear Stresses Along the Undamaged Interface (Figs. 12–15)
 Computed via linear elastic analysis (`ANALYSIS_TYPE = 'LE'`) in [`Run_cohesive_dbem_2d.ipynb`](COHESIVE_DBEM_2D_14_03/Run_cohesive_dbem_2d.ipynb) and [`Run_cohesive_dbem_2d_on_Colab.ipynb`](COHESIVE_DBEM_2D_14_03/Run_cohesive_dbem_2d_on_Colab.ipynb):
 
-| $h_s = 1.08\text{ mm}$ ($U_c = 0.576\text{ mm}$) | $h_s = 1.62\text{ mm}$ ($U_c = 0.6093\text{ mm}$) |
+| $`h_s = 1.08\text{ mm}`$ ($`U_c = 0.576\text{ mm}`$) | $`h_s = 1.62\text{ mm}`$ ($`U_c = 0.6093\text{ mm}`$) |
 | :---: | :---: |
 | ![Fig. 12](COHESIVE_DBEM_2D_14_03/fig12_peel_hs108.png) | ![Fig. 14](COHESIVE_DBEM_2D_14_03/fig14_peel_hs162.png) |
 | ![Fig. 13](COHESIVE_DBEM_2D_14_03/fig13_shear_hs108.png) | ![Fig. 15](COHESIVE_DBEM_2D_14_03/fig15_shear_hs162.png) |
 
 ### 2.3 Nonlinear Progressive Interface Damage Analysis — PID (Fig. 26 and Fig. 30)
-Detailed step by step in [`Run_cohesive_dbem_2d_nlinear.ipynb`](COHESIVE_DBEM_2D_14_03/Run_cohesive_dbem_2d_nlinear.ipynb), employing displacement-controlled Newton-Raphson continuation with a mixed-mode bilinear traction-separation law ($\sigma_c = 44.654\text{ MPa}$, $\mathcal{G}_c = 0.520\text{ N/mm}$, $k_{n0} = k_{t0} = 2000\text{ MPa/mm}$) for asymmetric debonding (`ANALYSIS_TYPE = 'CA'`):
+Detailed step by step in [`Run_cohesive_dbem_2d_nlinear.ipynb`](COHESIVE_DBEM_2D_14_03/Run_cohesive_dbem_2d_nlinear.ipynb), employing displacement-controlled Newton-Raphson continuation with a mixed-mode bilinear traction-separation law ($`\sigma_c = 44.654\text{ MPa}`$, $`\mathcal{G}_c = 0.520\text{ N/mm}`$, $`k_{n0} = k_{t0} = 2000\text{ MPa/mm}`$) for asymmetric debonding (`ANALYSIS_TYPE = 'CA'`):
 
 ![Fig. 26 - Force-displacement results for asymmetric debonding](COHESIVE_DBEM_2D_14_03/fig26_force_displacement_hs108.png)
 
 ![Crack Length Evolution and Cohesive Damage Front](COHESIVE_DBEM_2D_14_03/fig26_cohesive_damage_evolution_hs108.png)
 
-- **Synchronized Animation (`.mp4`)**: The script [`animate_debonding.py`](COHESIVE_DBEM_2D_14_03/animate_debonding.py) generates [`debonding_animation_hs108.mp4`](COHESIVE_DBEM_2D_14_03/debonding_animation_hs108.mp4), displaying the 2D DBEM mesh deforming on a true $1:1$ scale (analogous to **Fig. 28** of the paper) synchronized frame by frame with the Force vs. Central Displacement curve (**Fig. 26**).
+- **Synchronized Animation (`.mp4`)**: The script [`animate_debonding.py`](COHESIVE_DBEM_2D_14_03/animate_debonding.py) generates [`debonding_animation_hs108.mp4`](COHESIVE_DBEM_2D_14_03/debonding_animation_hs108.mp4), displaying the 2D DBEM mesh deforming on a true $`1:1`$ scale (analogous to **Fig. 28** of the paper) synchronized frame by frame with the Force vs. Central Displacement curve (**Fig. 26**).
 
 ---
 
